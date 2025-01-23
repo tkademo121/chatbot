@@ -1,16 +1,14 @@
 from openai import OpenAI
 import pandas as pd
 import streamlit as st
-
-
+ 
+ 
 # Set your OpenAI API key
 client = OpenAI(api_key= "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")
-
-# Load and preprocess the dataset
+ 
 def load_data():
     # Replace with your dataset path
     data = pd.read_csv("cleaned_data.csv")
-     
     # Precompute insights
     insights = {
         # Basic statistics
@@ -20,7 +18,7 @@ def load_data():
         "average_speed": data['Average Speed'].mean(),
         "average_pm25": data['PM2.5 Level'].mean(),
         "average_aqi": data['AQI'].mean(),
-
+ 
         # Grouped insights
         "traffic_by_location": data.groupby('Location')['Traffic Volume'].mean().to_dict(),
         "passenger_by_location": data.groupby('Location')['Passenger Count'].mean().to_dict(),
@@ -28,29 +26,29 @@ def load_data():
         "pm25_by_location": data.groupby('Location')['PM2.5 Level'].mean().to_dict(),
         "aqi_by_location": data.groupby('Location')['AQI'].mean().to_dict(),
         "speed_by_location": data.groupby('Location')['Average Speed'].mean().to_dict(),
-
+ 
         # Time-based insights
         "aqi_by_time": data.groupby('Time of the Day')['AQI'].mean().to_dict(),
         "noise_by_time": data.groupby('Time of the Day')['Noise Level'].mean().to_dict(),
         "speed_by_time": data.groupby('Time of the Day')['Average Speed'].mean().to_dict(),
-
-        # Correlation matrix
-        "correlation_matrix": data.corr().to_dict(),
-
+ 
+        # Correlation matrix (only numeric columns)
+        "correlation_matrix": data.select_dtypes(include=['float64', 'int64']).corr().to_dict(),
+ 
         # Data types
         "data_types": data.dtypes.to_dict()
     }
     return data, insights
-
+ 
 # Define the system prompt
 system_prompt = """
 You are an AI assistant for an urban mobility hackathon. Your task is to provide recommendations, insights, and guidance based on the dataset and tasks provided. Do not provide specific numerical values or generate code. If a question is unrelated to the dataset or tasks, respond with: "I can only answer questions related to the urban mobility dataset and hackathon tasks."
-
+ 
 Dataset Description:
 - The dataset contains information about urban mobility, including traffic volume, passenger count, noise levels, air quality, and more.
 - Features: ['Location', 'Traffic Volume', 'Passenger Count', 'Noise Level', 'Average Speed', 'PM2.5 Level', 'AQI', 'Day of the Week', 'Time of the Day']
 - Categorical Columns: ['Location', 'Day of the Week', 'Time of the Day']
-
+ 
 Hackathon Tasks:
 1. Data Analysis:
    - Import the dataset.
@@ -60,7 +58,7 @@ Hackathon Tasks:
    - Remove outliers using the capping method.
    - Fill missing data using suitable methods.
    - Change column datatypes.
-
+ 
 2. Advanced Analysis:
    - Calculate the average traffic volume for locations with a passenger count above 30,000.
    - Identify locations with the highest and lowest average speed.
@@ -68,12 +66,12 @@ Hackathon Tasks:
    - Group locations by 'Time of the Day' and calculate average AQI.
    - Calculate traffic density (traffic volume / average speed) for all locations.
    - Determine the most/least active locations by Traffic Volume and Passenger Count.
-
+ 
 3. AI Model:
    - Preprocess data for machine learning (encode categorical data, scale feature columns).
    - Prepare the dataset for model training (feature-target separation).
    - Train machine learning models (regression or classification).
-
+ 
 **Important Rules**:
 1. Provide recommendations and insights, not specific numerical values.
 2. Do not generate or suggest code.
@@ -81,25 +79,25 @@ Hackathon Tasks:
 4. Always base your answers on the dataset and tasks provided.
 5. Respond to greetings and small talk politely.
 """
-
+ 
 # Function to ask the chatbot
 def ask_chatbot(question, insights):
     # List of greetings and small talk phrases
     greetings = ["hello", "hi", "hey", "how are you", "good morning", "good afternoon", "good evening"]
-
+ 
     # Check if the question is a greeting
     is_greeting = any(greeting in question.lower() for greeting in greetings) and not any(word in question.lower() for word in ["aqi", "traffic", "noise", "speed", "pm2.5", "passenger", "correlation", "dataset"])
-
+ 
     # If it's a greeting, respond politely
     if is_greeting:
         return "Hello! I'm here to help you with the urban mobility dataset and hackathon tasks. How can I assist you today?"
-
+ 
     # Combine system prompt and user question
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": question}
     ]
-
+ 
     # Call OpenAI API
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -107,10 +105,10 @@ def ask_chatbot(question, insights):
         max_tokens=300,  # Increase token limit for detailed responses
         temperature=0.7
     )
-
+ 
     # Extract the chatbot's response
     chatbot_response = response.choices[0].message.content
-
+ 
     # Add precomputed insights if relevant
     if "traffic volume at" in question.lower():
         location = question.split("at")[-1].strip()
@@ -140,14 +138,14 @@ def ask_chatbot(question, insights):
         lowest_pm25_location = min(insights["pm25_by_location"], key=insights["pm25_by_location"].get)
         lowest_aqi_location = min(insights["aqi_by_location"], key=insights["aqi_by_location"].get)
         chatbot_response += f"\nInsight: Locations with the lowest PM2.5 levels and AQI are typically residential or rural areas with minimal pollution sources."
-
+ 
     return chatbot_response
-
+ 
 # Streamlit app
 def main():
     st.title("Urban Mobility Chatbot")
     st.write("Ask questions about the urban mobility dataset and hackathon tasks.")
-
+ 
     # Custom CSS to style the sidebar
     st.markdown(
         """
@@ -170,53 +168,53 @@ def main():
         """,
         unsafe_allow_html=True,
     )
-
+ 
     # Sidebar for instructions
     with st.sidebar:
         st.title("How to Use the Chatbot")
         st.write("""
         **Welcome to the Urban Mobility Chatbot!**  
         This chatbot is designed to help you analyze and understand the urban mobility dataset. Here's how you can use it:
-
+ 
         - **Ask Questions**: Type your question in the input box below and click "Submit".
         - **Dataset Insights**: The chatbot can provide insights about traffic volume, air quality, noise levels, and more.
         - **Hackathon Tasks**: Use the chatbot to get guidance on tasks like data analysis, advanced analysis, and AI modeling.
-
+ 
         **Example Questions**:
         - What is the average traffic volume?
         - Which location has the highest AQI?
         - What are the high correlations in the dataset?
         """)
-
+ 
     # Initialize session state for chat history
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
-
+ 
     # Load data and precompute insights
     data, insights = load_data()
-
+ 
     # Input box for user question
     user_question = st.text_input("Enter your question:")
-
+ 
     # Submit button
     if st.button("Submit"):
         if user_question:
             # Add the user's question to the chat history first
             st.session_state.chat_history.append({"role": "user", "content": user_question})
-
+ 
             # Get chatbot response
             response = ask_chatbot(user_question, insights)
-
+ 
             # Add the chatbot's response to the chat history
             st.session_state.chat_history.append({"role": "assistant", "content": response})
-
+ 
     # Display chat history (newer messages first, user over chatbot)
     st.write("Chat History:")
     for i in range(len(st.session_state.chat_history) - 1, -1, -2):  # Iterate in reverse steps of 2
         if i >= 0:
             user_message = st.session_state.chat_history[i - 1]  # User message
             chatbot_message = st.session_state.chat_history[i]  # Chatbot message
-
+ 
             # Display user message with unique identifier
             st.write(f"**YOU**: {user_message['content']}")
             # Display chatbot message with unique identifier
